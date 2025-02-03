@@ -218,3 +218,4 @@ def start_server(host='127.0.0.1', port=5555):
 if __name__ == '__main__':
     init_db()
     start_server()
+
