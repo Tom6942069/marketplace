@@ -2,10 +2,12 @@ import sys
 import json
 import socket
 import threading
+from tkinter.ttk import Label
+
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QStackedWidget,
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QTextEdit, QMessageBox, QFormLayout, QListWidget, QListWidgetItem
+    QTextEdit, QMessageBox, QFormLayout, QListWidget, QListWidgetItem, QDialog, QRadioButton, QCheckBox, QStyle
 )
 from PyQt6.QtCore import pyqtSignal, QObject, Qt
 from PyQt6.QtGui import QFont
@@ -135,18 +137,22 @@ class MarketplacePage(QWidget):
         self.setLayout(layout)
 
     def on_upload(self):
-        title = self.title_edit.text().strip()
-        desc = self.desc_edit.text().strip()
-        price_text = self.price_edit.text().strip()
-        if title and price_text:
-            try:
-                price = float(price_text)
-            except ValueError:
-                QMessageBox.warning(self, "Error", "Price must be a number.")
-                return
-            self.upload_signal.emit(title, desc, price)
-        else:
-            QMessageBox.warning(self, "Error", "Please fill in title and price.")
+        upload_dlg = UploadProductDialog()
+        upload_dlg.exec()
+
+    # def on_upload(self):
+    #     title = self.title_edit.text().strip()
+    #     desc = self.desc_edit.text().strip()
+    #     price_text = self.price_edit.text().strip()
+    #     if title and price_text:
+    #         try:
+    #             price = float(price_text)
+    #         except ValueError:
+    #             QMessageBox.warning(self, "Error", "Price must be a number.")
+    #             return
+    #         self.upload_signal.emit(title, desc, price)
+    #     else:
+    #         QMessageBox.warning(self, "Error", "Please fill in title and price.")
 
     def update_products(self, products):
         self.products_list.clear()
@@ -352,6 +358,97 @@ class MainWindow(QMainWindow):
 
     def show_market_page(self):
         self.stacked_widget.setCurrentWidget(self.market_page)
+
+class UploadProductDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Upload New Product")
+        self.client = Client()
+        self.current_user = None
+
+        # Apply a dark theme style sheet
+        self.setStyleSheet("""
+            QWidget {
+                font-family: 'Segoe UI';
+                font-size: 14pt;
+                background-color: #121212;
+                color: #dcdcdc;
+            }
+            QMainWindow {
+                background-color: #121212;
+            }
+            QPushButton {
+                background-color: #1f1f1f;
+                color: #dcdcdc;
+                border: 1px solid #333;
+                padding: 8px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #333333;
+            }
+            QLineEdit, QTextEdit, QListWidget {
+                background-color: #1f1f1f;
+                color: #dcdcdc;
+                border: 1px solid #333;
+                border-radius: 4px;
+                padding: 4px;
+            }
+            QLabel {
+                color: #dcdcdc;
+            }
+        """)
+
+        form_layout = QFormLayout()
+        self.manufacturer_edit = QLineEdit()
+        self.manufacturer_edit.setPlaceholderText("Manufacturer")
+        self.model_edit = QLineEdit()
+        self.model_edit.setPlaceholderText("Model")
+        self.searchModel_btn = QPushButton("search model")
+        self.customModelCheckbox_edit = QCheckBox(text="custom Model")
+
+        self.searchModel_btn.clicked.connect(self.search_model_handle)
+        self.customModelCheckbox_edit.stateChanged.connect(self.custom_model_handle)
+
+        self.screenSize_edit = QLineEdit()
+        self.screenSize_edit.setPlaceholderText("Screen size")
+        self.ramSize_edit = QLineEdit()
+        self.ramSize_edit.setPlaceholderText("Enter ram size")
+        self.hddSize_edit = QLineEdit()
+        self.hddSize_edit.setPlaceholderText("Enter hdd size")
+        self.ssdSize_edit = QLineEdit()
+        self.ssdSize_edit.setPlaceholderText("Enter ssd size")
+        self.cpu_edit = QLineEdit()
+        self.cpu_edit.setPlaceholderText("Enter cpu model")
+        self.upload_btn = QPushButton("Upload to market")
+        self.upload_btn.clicked.connect(self.upload_product_handle)
+
+        form_layout.addRow("Computer's Manufacturer:", self.manufacturer_edit)
+        form_layout.addRow("Computer's Model:", self.model_edit)
+        form_layout.addRow(self.searchModel_btn)
+        form_layout.addRow(self.customModelCheckbox_edit)
+        form_layout.addRow("your screen size:",self.screenSize_edit)
+        form_layout.addRow("your ram size:", self.ramSize_edit)
+        form_layout.addRow("hdd size:" ,self.hddSize_edit)
+        form_layout.addRow("ssd size:", self.ssdSize_edit)
+        form_layout.addRow("cpu model:",self.cpu_edit)
+        form_layout.addRow(self.upload_btn)
+
+        self.setLayout(form_layout)
+
+
+    def custom_model_handle(self):
+        if self.customModelCheckbox_edit.isChecked():
+            self.screenSize_edit.setEnabled(True)
+        else:
+            self.screenSize_edit.setEnabled(False)
+
+    def search_model_handle(self):
+        return
+
+    def upload_product_handle(self):
+        return
+
 
 def main():
     app = QApplication(sys.argv)
