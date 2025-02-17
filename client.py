@@ -4,13 +4,18 @@ import socket
 import threading
 from tkinter.ttk import Label
 
+import requests
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QStackedWidget,
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QTextEdit, QMessageBox, QFormLayout, QListWidget, QListWidgetItem, QDialog, QRadioButton, QCheckBox, QStyle
+    QTextEdit, QMessageBox, QFormLayout, QListWidget, QListWidgetItem, QDialog, QRadioButton, QCheckBox, QStyle,
+    QComboBox
 )
 from PyQt6.QtCore import pyqtSignal, QObject, Qt
 from PyQt6.QtGui import QFont
+from urllib3 import request
+API_URL = "http://127.0.0.1:5000/get_available_specs"
+FILTER_URL = "http://127.0.0.1:5000/get_laptops"
 
 # -----------------------
 # Client Communication Class
@@ -18,7 +23,7 @@ from PyQt6.QtGui import QFont
 class Client(QObject):
     response_received = pyqtSignal(dict)
 
-    def __init__(self, host='127.0.0.1', port=5555):
+    def __init__(self, host='127.0.0.1', port=5554):
         super().__init__()
         self.host = host
         self.port = port
@@ -399,55 +404,167 @@ class UploadProductDialog(QDialog):
             }
         """)
 
-        form_layout = QFormLayout()
-        self.manufacturer_edit = QLineEdit()
-        self.manufacturer_edit.setPlaceholderText("Manufacturer")
-        self.model_edit = QLineEdit()
-        self.model_edit.setPlaceholderText("Model")
-        self.searchModel_btn = QPushButton("search model")
-        self.customModelCheckbox_edit = QCheckBox(text="custom Model")
+        self.layout = QVBoxLayout()
+        self.specs = self.fetch_specs()
 
-        self.searchModel_btn.clicked.connect(self.search_model_handle)
-        self.customModelCheckbox_edit.stateChanged.connect(self.custom_model_handle)
+        self.brand_label = QLabel("Brand:")
+        self.brand_combo = QComboBox()
+        self.brand_combo.addItem("None")
 
-        self.screenSize_edit = QLineEdit()
-        self.screenSize_edit.setPlaceholderText("Screen size")
-        self.ramSize_edit = QLineEdit()
-        self.ramSize_edit.setPlaceholderText("Enter ram size")
-        self.hddSize_edit = QLineEdit()
-        self.hddSize_edit.setPlaceholderText("Enter hdd size")
-        self.ssdSize_edit = QLineEdit()
-        self.ssdSize_edit.setPlaceholderText("Enter ssd size")
-        self.cpu_edit = QLineEdit()
-        self.cpu_edit.setPlaceholderText("Enter cpu model")
-        self.upload_btn = QPushButton("Upload to market")
-        self.upload_btn.clicked.connect(self.upload_product_handle)
+        self.cpu_label = QLabel("CPU:")
+        self.cpu_combo = QComboBox()
+        self.cpu_combo.addItem("None")
 
-        form_layout.addRow("Computer's Manufacturer:", self.manufacturer_edit)
-        form_layout.addRow("Computer's Model:", self.model_edit)
-        form_layout.addRow(self.searchModel_btn)
-        form_layout.addRow(self.customModelCheckbox_edit)
-        form_layout.addRow("your screen size:",self.screenSize_edit)
-        form_layout.addRow("your ram size:", self.ramSize_edit)
-        form_layout.addRow("hdd size:" ,self.hddSize_edit)
-        form_layout.addRow("ssd size:", self.ssdSize_edit)
-        form_layout.addRow("cpu model:",self.cpu_edit)
-        form_layout.addRow(self.upload_btn)
+        self.ram_label = QLabel("RAM:")
+        self.ram_combo = QComboBox()
+        self.ram_combo.addItem("None")
 
-        self.setLayout(form_layout)
+        self.storage_label = QLabel("Storage:")
+        self.storage_combo = QComboBox()
+        self.storage_combo.addItem("None")
+
+        self.gpu_label = QLabel("GPU:")
+        self.gpu_combo = QComboBox()
+        self.gpu_combo.addItem("None")
+
+        self.monitor_size_label = QLabel("Monitor Size:")
+        self.monitor_size_combo = QComboBox()
+        self.monitor_size_combo.addItem("None")
+
+        self.refresh_rate_label = QLabel("Refresh Rate:")
+        self.refresh_rate_combo = QComboBox()
+        self.refresh_rate_combo.addItem("None")
+
+        self.resolution_label = QLabel("Resolution:")
+        self.resolution_combo = QComboBox()
+        self.resolution_combo.addItem("None")
+
+        self.populate_comboboxes()
+
+        self.brand_combo.currentIndexChanged.connect(self.update_filters)
+        self.resolution_combo.currentIndexChanged.connect(self.update_filters)
+        self.cpu_combo.currentIndexChanged.connect(self.update_filters)
+        self.ram_combo.currentIndexChanged.connect(self.update_filters)
+        self.storage_combo.currentIndexChanged.connect(self.update_filters)
+        self.gpu_combo.currentIndexChanged.connect(self.update_filters)
+        self.monitor_size_combo.currentIndexChanged.connect(self.update_filters)
+        self.refresh_rate_combo.currentIndexChanged.connect(self.update_filters)
 
 
-    def custom_model_handle(self):
-        if self.customModelCheckbox_edit.isChecked():
-            self.screenSize_edit.setEnabled(True)
-        else:
-            self.screenSize_edit.setEnabled(False)
+        self.layout.addWidget(self.brand_label)
+        self.layout.addWidget(self.brand_combo)
+        self.layout.addWidget(self.cpu_label)
+        self.layout.addWidget(self.cpu_combo)
+        self.layout.addWidget(self.ram_label)
+        self.layout.addWidget(self.ram_combo)
+        self.layout.addWidget(self.storage_label)
+        self.layout.addWidget(self.storage_combo)
+        self.layout.addWidget(self.gpu_label)
+        self.layout.addWidget(self.gpu_combo)
+        self.layout.addWidget(self.monitor_size_label)
+        self.layout.addWidget(self.monitor_size_combo)
+        self.layout.addWidget(self.refresh_rate_label)
+        self.layout.addWidget(self.refresh_rate_combo)
+        self.layout.addWidget(self.resolution_label)
+        self.layout.addWidget(self.resolution_combo)
 
-    def search_model_handle(self):
-        return
+        self.setLayout(self.layout)
 
-    def upload_product_handle(self):
-        return
+    def fetch_specs(self, filters=None):
+        try:
+            url = API_URL if not filters else FILTER_URL
+            response = requests.get(url) if not filters else requests.post(url, json=filters)
+            if response.status_code == 200:
+                data = response.json()
+                return data if isinstance(data, dict) else {}
+            else:
+                return {}
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching specs: {e}")
+            return {}
+
+    def populate_comboboxes(self):
+        if not isinstance(self.specs, dict):
+            return
+        print(self.specs.get("brands"))
+        self.brand_combo.addItems(self.specs.get("brands",[]))
+        self.cpu_combo.addItems(self.specs.get("cpus", []))
+        self.ram_combo.addItems(map(str, self.specs.get("rams", [])))
+        self.storage_combo.addItems(map(str, self.specs.get("storages", [])))
+        self.gpu_combo.addItems(self.specs.get("gpus", []))
+        self.monitor_size_combo.addItems(map(str, self.specs.get("monitor_sizes", [])))
+        self.refresh_rate_combo.addItems(map(str, self.specs.get("refresh_rates", [])))
+        self.resolution_combo.addItems(self.specs.get("resolutions", []))
+
+    def update_filters(self):
+        filters = {
+            "brand": self.brand_combo.currentText() if self.brand_combo.currentText() != "None" else None,
+            "cpu": self.cpu_combo.currentText() if self.cpu_combo.currentText() != "None" else None,
+            "ram": int(self.ram_combo.currentText()) if self.ram_combo.currentText() not in ["None", ""] else None,
+            "storage": int(self.storage_combo.currentText()) if self.storage_combo.currentText() not in ["None",
+                                                                                                         ""] else None,
+            "gpu": self.gpu_combo.currentText() if self.gpu_combo.currentText() != "None" else None,
+            "monitor_size": float(
+                self.monitor_size_combo.currentText()) if self.monitor_size_combo.currentText() not in ["None",
+                                                                                                        ""] else None,
+            "refresh_rate": int(self.refresh_rate_combo.currentText()) if self.refresh_rate_combo.currentText() not in [
+                "None", ""] else None,
+            "resolution": self.resolution_combo.currentText() if self.resolution_combo.currentText() != "None" else None
+        }
+        filters = {k: v for k, v in filters.items() if v is not None}  # Remove empty filters
+
+        updated_specs = self.fetch_specs(filters)
+
+        if not isinstance(updated_specs, dict):
+            print("Error: Expected a dictionary but got:", type(updated_specs))
+            return
+
+            # Block signals to prevent infinite update loop
+        self.cpu_combo.blockSignals(True)
+        self.ram_combo.blockSignals(True)
+        self.storage_combo.blockSignals(True)
+        self.gpu_combo.blockSignals(True)
+        self.monitor_size_combo.blockSignals(True)
+        self.refresh_rate_combo.blockSignals(True)
+        self.resolution_combo.blockSignals(True)
+
+        self.cpu_combo.clear()
+
+        self.cpu_combo.addItem("None") if updated_specs["cpus"] is None else self.cpu_combo.addItems(updated_specs.get("cpus", []))
+
+        #complete all addItem/s like the row above
+        self.ram_combo.clear()
+        self.ram_combo.addItem("None")
+        self.ram_combo.addItems(map(str, updated_specs.get("rams", [])))
+
+        self.storage_combo.clear()
+        self.storage_combo.addItem("None")
+        self.storage_combo.addItems(map(str, updated_specs.get("storages", [])))
+
+        self.gpu_combo.clear()
+        self.gpu_combo.addItem("None")
+        self.gpu_combo.addItems(updated_specs.get("gpus", []))
+
+        self.monitor_size_combo.clear()
+        self.monitor_size_combo.addItem("None")
+        self.monitor_size_combo.addItems(map(str, updated_specs.get("monitor_sizes", [])))
+
+        self.refresh_rate_combo.clear()
+        self.refresh_rate_combo.addItem("None")
+        self.refresh_rate_combo.addItems(map(str, updated_specs.get("refresh_rates", [])))
+
+        self.resolution_combo.clear()
+        self.resolution_combo.addItem("None")
+        self.resolution_combo.addItems(updated_specs.get("resolutions", []))
+
+        # Re-enable signals after updates
+        self.cpu_combo.blockSignals(False)
+        self.ram_combo.blockSignals(False)
+        self.storage_combo.blockSignals(False)
+        self.gpu_combo.blockSignals(False)
+        self.monitor_size_combo.blockSignals(False)
+        self.refresh_rate_combo.blockSignals(False)
+        self.resolution_combo.blockSignals(False)
 
 
 def main():

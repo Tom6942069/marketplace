@@ -206,7 +206,7 @@ def handle_client(client_socket, addr):
 # -----------------------
 # Server Main Loop
 # -----------------------
-def start_server(host='127.0.0.1', port=5555):
+def start_server(host='127.0.0.1', port=5554):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((host, port))
     server.listen(5)
