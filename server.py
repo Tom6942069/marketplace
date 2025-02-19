@@ -22,14 +22,22 @@ def init_db():
           )
     ''')
     cursor.execute('''
-          CREATE TABLE IF NOT EXISTS Products (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              title TEXT NOT NULL,
-              description TEXT,
-              price REAL NOT NULL,
-              seller_username TEXT NOT NULL
-          )
-    ''')
+            CREATE TABLE IF NOT EXISTS Products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT,
+                price REAL NOT NULL,
+                seller_username TEXT NOT NULL,
+                brand TEXT,
+                cpu TEXT,
+                ram INTEGER,
+                storage INTEGER,
+                gpu TEXT,
+                monitor_size REAL,
+                refresh_rate INTEGER,
+                resolution TEXT
+            )
+        ''')
     cursor.execute('''
           CREATE TABLE IF NOT EXISTS Chats (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,12 +80,14 @@ def login_user(username, password):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-def upload_product(title, description, price, seller):
+def upload_product(title, description, price, seller, brand, cpu, ram, storage, gpu, monitor_size, refresh_rate, resolution):
     try:
         conn = sqlite3.connect('marketplace.db')
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO Products (title, description, price, seller_username) VALUES (?, ?, ?, ?)",
-                       (title, description, price, seller))
+        cursor.execute('''
+            INSERT INTO Products (title, description, price, seller_username, brand, cpu, ram, storage, gpu, monitor_size, refresh_rate, resolution) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (title, description, price, seller, brand, cpu, ram, storage, gpu, monitor_size, refresh_rate, resolution))
         conn.commit()
         conn.close()
         return {"status": "ok", "message": "Product uploaded"}
@@ -88,9 +98,13 @@ def list_products():
     try:
         conn = sqlite3.connect('marketplace.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT id, title, description, price, seller_username FROM Products")
+        cursor.execute('''
+            SELECT id, title, description, price, seller_username, brand, cpu, ram, storage, gpu, monitor_size, refresh_rate, resolution 
+            FROM Products
+        ''')
         products = cursor.fetchall()
         conn.close()
+
         product_list = []
         for prod in products:
             product_list.append({
@@ -98,7 +112,15 @@ def list_products():
                 "title": prod[1],
                 "description": prod[2],
                 "price": prod[3],
-                "seller": prod[4]
+                "seller": prod[4],
+                "brand": prod[5],
+                "cpu": prod[6],
+                "ram": prod[7],
+                "storage": prod[8],
+                "gpu": prod[9],
+                "monitor_size": prod[10],
+                "refresh_rate": prod[11],
+                "resolution": prod[12]
             })
         return {"status": "ok", "products": product_list}
     except Exception as e:
@@ -150,7 +172,16 @@ def process_request(request):
         description = request.get("description")
         price = request.get("price")
         seller = request.get("seller")
-        return upload_product(title, description, price, seller)
+        brand = request.get("brand")
+        cpu = request.get("cpu")
+        ram = request.get("ram")
+        storage = request.get("storage")
+        gpu = request.get("gpu")
+        monitor_size = request.get("monitor_size")
+        refresh_rate = request.get("refresh_rate")
+        resolution = request.get("resolution")
+        return upload_product(title, description, price, seller, brand, cpu, ram, storage, gpu, monitor_size,
+                              refresh_rate, resolution)
     elif action == "list_products":
         return list_products()
     elif action == "remove_product":
@@ -202,6 +233,18 @@ def handle_client(client_socket, addr):
         del client_sockets[logged_in_username]
     client_socket.close()
     print("Connection closed", addr)
+
+def custom_script():
+    try:
+        conn = sqlite3.connect('marketplace.db')
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE Products;")
+
+        conn.commit()
+        conn.close()
+        return {"status": "ok", "message": "Product removed"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 # -----------------------
 # Server Main Loop

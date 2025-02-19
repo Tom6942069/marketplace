@@ -14,7 +14,7 @@ resolutions = ["1366x768", "1920x1080", "2560x1440", "3840x2160"]
 laptops = [
     {"id": i + 1, "brand": random.choice(brands), "name": f"Laptop {i + 1}", "cpu": random.choice(cpu_options),
      "ram": random.choice([4, 8, 16, 32, 64]), "storage": random.choice([128, 256, 512, 1000, 2000]),
-     "gpu": random.choice(gpu_options), "monitor_size": random.choice([13, 14, 15.6, 16, 17, 17.3]),
+     "gpu": random.choice(gpu_options), "monitor_size": random.choice([13.0, 14.0,15.6, 16.0, 17.0, 17.3]),
      "refresh_rate": random.choice([60, 120, 144, 165, 240]), "resolution": random.choice(resolutions)}
     for i in range(50)
 ]
